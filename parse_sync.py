@@ -10,8 +10,6 @@ URL = 'https://www.prydwen.gg/star-rail/tier-list/'
 URL_ROOT = 'https://www.prydwen.gg'
 CHARACTER_URL_FIRST_PART = '/star-rail/characters/'
 
-characters = {}
-
 
 class HSRParser:
     """
@@ -28,12 +26,13 @@ class HSRParser:
             start_time = time.time()
             result = func(*args, **kwargs)
             end_time = time.time()
-            print(f"CHECKING TIME: Process finished in: {end_time - start_time}")
+            print(f"CHECKING TIME ==>> Process finished in: {end_time - start_time}")
             return result
         return wrapper
 
     @_calculate_time_decorator
-    def get_names_and_urls(self) -> None:
+    def parse(self) -> None:
+        self.create_csv()
         soup = BeautifulSoup(requests.get(url=self.url).text, 'lxml')
         character_divs = soup.findAll("div", class_='avatar-card card')
         for character_div in character_divs:
@@ -41,6 +40,7 @@ class HSRParser:
             character_name = character_url.split(CHARACTER_URL_FIRST_PART)[1]
             self._create_character(character_name, character_url)
             self._parse_individual_character(character_url, character_name)
+        self.write_in_csv()
 
     def _create_character(self, character_name: str, character_url: str) -> None:
         self.characters.setdefault(character_name, Character(
@@ -83,19 +83,42 @@ class HSRParser:
         self.characters[character_name].best_planetary_sets = self._get_relics(planetary_items_div)
         self.characters[character_name].best_stats = self._get_best_stats(soup)
 
+    @staticmethod
+    def create_csv():
+        with open("character_log.csv", mode="w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow([
+                "name",
+                "url",
+                "element",
+                "best_relic_sets",
+                "best_planetary_sets",
+                "best_stats"
+            ])
 
-
-def create_csv():
-    pass
-
-
-def write_csv():
-    pass
+    def write_in_csv(self):
+        with open("character_log.csv", mode="a", newline="") as file:
+            writer = csv.writer(file)
+            for character in self.characters.values():
+                try:
+                    writer.writerow([
+                        character.real_name,
+                        character.url,
+                        character.element,
+                        character.best_relic_sets,
+                        character.best_planetary_sets,
+                        character.best_stats
+                    ])
+                except UnicodeEncodeError:
+                    print('==================================================================================')
+                    print(f"Unicode Encode error occurred with the character {character.real_name}")
+                    print(f"Character INFO: {character.__dict__}")
+                    print('==================================================================================')
 
 
 if __name__ == "__main__":
     my_parser = HSRParser(URL, CHARACTER_URL_FIRST_PART)
-    my_parser.get_names_and_urls()
+    my_parser.parse()
     print(my_parser.characters)
 
 
